@@ -1,0 +1,150 @@
+---
+title: "Assignment4"
+author: "Donovan Kott"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r start}
+data2 <- read.csv("C:/Users/dmkot/Downloads/Unemployment in America Per US State.csv")
+str(data2)
+data3 = data2[data2$State.Area == "New Jersey",]
+head(data3)
+```
+
+
+```{r libraries}
+library(fpp)
+library(fpp2)
+library(TTR)
+```
+
+Interesting to see that the unemployment rate has gone up and down in various cycles throughout the years and really spiked during the pandemic
+```{r myts}
+myts = ts(data3$Percent.....of.Labor.Force.Unemployed.in.State.Area, start=c(1976,1), end=c(2022,12), frequency=12)
+plot(myts, ylab="Unemployment Rate %")
+```
+
+We can see the data is a time series from 1976 to 2022 in monthly steps. The Acf plot shows a gradually declining pattern of all significant lags and the Pacf plot shows 2 significant lags followed by a drop off of insignificant lags.
+```{r myts1}
+attributes(myts)
+Acf(myts)
+Pacf(myts)
+```
+
+Take Mean of all available history: We can see the mean is a little above 6%. While this is useful information it does not make the best predictor because it doesnt capture seasonality and trend. The RMSE is 2.07 which is pretty high. 
+```{r mean}
+mean_forecast = meanf(myts,99)
+plot(mean_forecast)
+accuracy(mean_forecast)
+```
+
+Naive: We can see the forecast uses the last available data point at under 5% and uses that as its predictor. Once again not the best method for this kind of data as it doesn't account for seasonality or trend. The RMSE is .5377 which is alot better than the previous forecast meaning the forecast is closer to the actual data
+```{r NAive}
+naive_forecast = naive(myts,99)
+plot(naive_forecast)
+accuracy(naive_forecast)
+```
+
+Random Walk: Shows the forecast going down over time because drift = true. When drift is false the forecast is more flat and constant. RMSE is .5375 which is slightly lower than Naive hence a better forecast.
+```{r random}
+rwf_forecast <- rwf(myts,99, drift=TRUE)
+plot(rwf_forecast)
+accuracy(rwf_forecast)
+```
+
+Seasonal Naive: Shows the forecast starting high and steadily declining. The RMSE is 1.79 which is alot higher than regular Naive because unemployment data is not seasonal in nature so seasonal naive is not the best predictor because it needs to factor in trend somehow too.
+```{r seasonal}
+snaive_forecast <- snaive(myts,99)
+plot(snaive_forecast)
+accuracy(snaive_forecast)
+```
+
+Moving Averages: The Moving Average 5 forecast shows a slight upward incline. The RMSE is .1698 which is the lowest and best average so far. 
+```{r MA}
+MA5_forecast <- ma(myts,order=5)
+plot(MA5_forecast)
+x3=forecast(MA5_forecast)
+plot(x3)
+accuracy(x3)
+```
+
+Moving Averages Forecast 9: The MA 9 forecast is even better because it takes a longer moving window of data and in this case more accurate. The RMSE is .082 which is the lowest by far and the best prediction model so far.
+```{r MA9}
+MA9_forecast <- ma(myts,order=9)
+plot(MA9_forecast)
+x4=forecast(MA9_forecast)
+plot(x4)
+accuracy(x4)
+```
+
+Moving Averages Forecast 27: The MA 27 forecast is even better because there were 27 significant lag spikes in the Acf plot.  The RMSE is .0289 which is the lowest by far and the best prediction model so far. 
+```{r MA27}
+MA27_forecast <- ma(myts,order=27)
+plot(MA27_forecast)
+x5=forecast(MA27_forecast)
+plot(x5)
+accuracy(x5)
+```
+
+
+Plot all in a single chart: You can see how accurate all the models are compared to the actual time series data. You can also compare how different the forecast predictions are. Interesting to see the how all the models weren't that accurate around 2020 because the pandemic spiked the unemployment rate so high and really threw off the trend. 
+```{r plot}
+
+plot(mean_forecast)
+lines(myts, col="orange")
+lines(naive_forecast$mean,col="red")
+lines(rwf_forecast$mean,col="green")
+lines(snaive_forecast$mean,col="black")
+lines(MA5_forecast,col="Pink")
+lines(MA9_forecast,col="Blue")
+lines(MA27_forecast, col="yellow")
+```
+
+Decomposition: The exponential smoothing model has a RMSE of .5372 which is better than Naive and random walk but not MA9. 
+```{r decomp}
+ets_forecast <- ets(myts)
+plot(ets_forecast)
+attributes(ets_forecast)
+accuracy(ets_forecast)
+ets_forecast$mse
+```
+
+HoltWinters: HoltWinters factors in level, trend, and seasonality and is a better predictor in this case than exponential smoothing. It has a RMSE of .5372 which than Naive, random walk, and exponential smoothing but not MA9. 
+```{r holt}
+HW_forecast <- HoltWinters(myts)
+plot(HW_forecast)
+x1=forecast(HW_forecast, h=99)
+plot(x1)
+accuracy(x1)
+```
+
+
+HoltWinters no Beta or gamma: With beta as false it does exponential smoothing and with gamma as false it does a non seasonal model. The RMSE is .5377 which is extremely similar to the exponential smoothing forecast model. 
+```{r holtwint}
+SSE_Simple <- HoltWinters(myts,beta=FALSE,gamma=FALSE)
+attributes(SSE_Simple)
+x2=forecast(SSE_Simple)
+plot(x2)
+accuracy(x2)
+```
+
+```{r sse}
+
+plot(SSE_Simple)
+SSE_Simple$SSE
+head(SSE_Simple$fitted)
+```
+
+
+The best model for my unemployment data set is the Moving Average model and more specifically the MA27 model because there were 27 significant lag spikes in the Acf plot. MA27 has the lowest RMSE of .0289 out of all the models and therefore makes the best predictor in this case. 
